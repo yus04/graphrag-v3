@@ -12,6 +12,9 @@ wheels/
 # Environment variables
 .env
 
+# input
+input/
+
 # cache
 cache/
 
