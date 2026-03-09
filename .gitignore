@@ -11,3 +11,12 @@ wheels/
 
 # Environment variables
 .env
+
+# cache
+cache/
+
+# logs
+logs/
+
+# output
+output/
