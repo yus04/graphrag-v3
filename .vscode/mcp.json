@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "graphrag": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/workspaces/graphrag-v3",
+        "graphrag-mcp"
+      ]
+    }
+  }
+}
