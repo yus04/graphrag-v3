@@ -107,6 +107,65 @@ uv run graphrag query \
   --method local
 ```
 
+## MCP サーバー
+
+GraphRAG のクエリ機能を [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) ツールとして公開します。Claude Desktop・Cursor・VS Code などの MCP 対応クライアントから直接 GraphRAG を呼び出せます。
+
+### MCP 依存パッケージのインストール
+
+```bash
+uv sync
+```
+
+`mcp>=1.0` が自動的にインストールされます。
+
+### サーバーの起動（stdio トランスポート）
+
+```bash
+uv run graphrag-mcp
+```
+
+または直接実行:
+
+```bash
+uv run python main.py
+```
+
+プロジェクトのルートディレクトリを変更する場合は環境変数 `GRAPHRAG_ROOT` を指定します。
+
+```bash
+GRAPHRAG_ROOT=/path/to/project uv run graphrag-mcp
+```
+
+### 公開されるツール
+
+| ツール名 | 説明 |
+|----------|------|
+| `graphrag_global_search` | コミュニティサマリー全体を横断する広域検索（テーマ・傾向の質問に最適） |
+| `graphrag_local_search` | エンティティ周辺コンテキストを使った局所検索（人物・組織の詳細に最適） |
+| `graphrag_drift_search` | グローバル＋ローカルのハイブリッド DRIFT 検索 |
+| `graphrag_basic_search` | テキストチャンクへのベクトル類似度検索（最も軽量） |
+
+すべてのツールは `response_type` パラメーターで回答形式を指定できます（例: `"Multiple Paragraphs"`, `"List of 3-7 Points"` など）。
+
+### Claude Desktop への登録例
+
+`claude_desktop_config.json` に以下を追加します。
+
+```json
+{
+  "mcpServers": {
+    "graphrag": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/graphrag-v3", "run", "graphrag-mcp"],
+      "env": {
+        "GRAPHRAG_ROOT": "/path/to/graphrag-v3"
+      }
+    }
+  }
+}
+```
+
 ## 参考リンク
 
 - [GraphRAG ドキュメント](https://microsoft.github.io/graphrag/)
