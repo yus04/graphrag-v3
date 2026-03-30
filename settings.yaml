@@ -9,7 +9,7 @@ completion_models:
     model_provider: azure # or openai
     model: gpt-4.1
     deployment_name: gpt-4.1
-    auth_method: azure_managed_identity # or api_key
+    auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY} # set this in the generated .env file, or remove if managed identity
     api_base: ${GRAPHRAG_API_BASE}
     retry:
@@ -20,7 +20,7 @@ embedding_models:
     model_provider: azure # or openai
     model: text-embedding-3-large
     deployment_name: text-embedding-3-large
-    auth_method: azure_managed_identity # or api_key
+    auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY}
     api_base: ${GRAPHRAG_API_BASE}
     retry:
