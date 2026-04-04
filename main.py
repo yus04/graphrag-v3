@@ -24,11 +24,37 @@ import pandas as pd
 from mcp.server.fastmcp import FastMCP
 
 import graphrag.api as api
-from graphrag.config.load_config import load_config
-from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.data_model.data_reader import DataReader
+
+# --- 公開 API で提供されているシンボル ----------------------------------------
+from graphrag.data_model import DataReader
 from graphrag_storage import create_storage
-from graphrag_storage.tables.table_provider_factory import create_table_provider
+
+# --- 内部 API（v3.0.6 時点で公開 API が存在しない）--------------------------
+# graphrag.config および graphrag_storage の内部パスはバージョン変更で移動する可能性あり
+try:
+    from graphrag.config.load_config import load_config
+except ImportError as e:
+    raise ImportError(
+        "graphrag.config.load_config が見つかりません。"
+        " graphrag のバージョンが変わり内部パスが移動した可能性があります。"
+        f" (graphrag=={__import__('importlib.metadata', fromlist=['version']).version('graphrag')})"
+    ) from e
+
+try:
+    from graphrag.config.models.graph_rag_config import GraphRagConfig
+except ImportError as e:
+    raise ImportError(
+        "graphrag.config.models.graph_rag_config.GraphRagConfig が見つかりません。"
+        " graphrag のバージョンが変わり内部パスが移動した可能性があります。"
+    ) from e
+
+try:
+    from graphrag_storage.tables.table_provider_factory import create_table_provider
+except ImportError as e:
+    raise ImportError(
+        "graphrag_storage.tables.table_provider_factory.create_table_provider が見つかりません。"
+        " graphrag-storage のバージョンが変わり内部パスが移動した可能性があります。"
+    ) from e
 
 # ---------------------------------------------------------------------------
 # サーバーとグローバル状態
@@ -71,13 +97,35 @@ async def _load_dataframes(
     table_provider = create_table_provider(config.table_provider, storage=storage)
     reader = DataReader(table_provider)
 
+    # DataReader のメソッドを明示的に呼び出し
+    _READER_METHODS: dict[str, str] = {
+        "entities": "entities",
+        "communities": "communities",
+        "community_reports": "community_reports",
+        "text_units": "text_units",
+        "relationships": "relationships",
+        "covariates": "covariates",
+    }
+
+    async def _call_reader(r: DataReader, name: str) -> pd.DataFrame:
+        method = _READER_METHODS.get(name)
+        if method is None:
+            raise ValueError(f"未定義のデータフレーム名: {name!r}")
+        fn = getattr(r, method, None)
+        if fn is None:
+            raise AttributeError(
+                f"DataReader に '{method}' メソッドが存在しません。"
+                " graphrag のバージョンが変わった可能性があります。"
+            )
+        return await fn()
+
     for name in to_fetch:
-        _df_cache[name] = await getattr(reader, name)()
+        _df_cache[name] = await _call_reader(reader, name)
         _df_loaded.add(name)
 
     for name in opt_to_fetch:
         if await table_provider.has(name):
-            _df_cache[name] = await getattr(reader, name)()
+            _df_cache[name] = await _call_reader(reader, name)
         else:
             _df_cache[name] = None
         _df_loaded.add(name)
@@ -242,7 +290,7 @@ async def graphrag_basic_search(
 
 
 def main() -> None:
-    """MCP サーバーを起動する（stdio トランスポート）。"""
+    """MCP サーバーを起動（stdio トランスポート）"""
     mcp.run()
 
 
