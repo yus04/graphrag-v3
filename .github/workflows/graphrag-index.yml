@@ -1,7 +1,7 @@
 # GraphRAG インデックス定期実行ワークフロー
 #
 # このワークフローは GraphRAG CLI を使ってグラフデータベースを構築・更新します。
-# スケジュール実行（毎週日曜 UTC 02:00）と手動トリガーの両方に対応しています。
+# スケジュール実行（毎週日曜 JST 00:00 / UTC 土曜 15:00）と手動トリガーの両方に対応しています。
 #
 # 必要な GitHub Secrets:
 #   GRAPHRAG_API_KEY        - Azure OpenAI または OpenAI の API キー

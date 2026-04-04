@@ -1,17 +1,19 @@
 # graphrag-v3
 
-Python 3.12 + [graphrag](https://github.com/microsoft/graphrag) v3.0.6 を [uv](https://docs.astral.sh/uv/) で管理するプロジェクトです。  
-GraphRAG のクエリ機能を [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) ツールとして公開します。  
-**ローカル（stdio）と Azure App Service（HTTP）の両環境で動作します。**
+本リポジトリのコードは、[GraphRAG v3](https://github.com/microsoft/graphrag) を使ったアプリケーションを Azure で公開するためのサンプルコードです。`uv run graphrag init` により構成されたプロジェクトをベースに、MCP サーバー化のための実装を行っています。
 
-> ⚠️ GraphRAG は LLM リソースを大量に消費する可能性があります。まずチュートリアル用データセットで動作を確認し、大規模なインデックス作業の前に安価なモデルで試すことを強く推奨します。
+本 README では、ローカルでの利用方法と Azure での利用方法についてそれぞれ解説します。具体的には、ローカルでは GraphRAG CLI を使った手順についての解説、Azure では GitHub Actions 上で GraphRAG CLI 操作する CI/CD の構築と、Azure App Service で MCP サーバーを公開する手順について解説します。
+
+> ⚠️ 本リポジトリのコードはサンプルコードであるため、コードが正しく動くことを保証するものではございません。GraphRAG MCP サーバー実装の参考としてご活用ください。
 
 ## 要件
 
 - [uv](https://docs.astral.sh/uv/) がインストールされていること
 - Python 3.12（uv が自動管理）
 
-## セットアップ
+---
+
+## ローカル環境での利用
 
 ### 1. リポジトリのクローン／ディレクトリへ移動
 
@@ -27,63 +29,45 @@ uv sync
 
 `uv sync` を実行すると `.venv` が作成され、`graphrag==3.0.6` を含むすべての依存パッケージがインストールされます。
 
-## GraphRAG の初期化
-
-```bash
-uv run graphrag init
-```
-
-プロンプトに従い、使用するチャットモデルと埋め込みモデルを指定します。  
-実行後、以下のファイル・ディレクトリが生成されます。
-
-| パス | 説明 |
-|------|------|
-| `input/` | GraphRAG が処理するテキストファイルの置き場所 |
-| `.env` | API キーなどの環境変数（`GRAPHRAG_API_KEY=<API_KEY>` を設定） |
-| `settings.yaml` | パイプラインの設定ファイル |
-
-## サンプルテキストの取得
+### 3. サンプルテキストの取得
 
 ```bash
 curl https://www.gutenberg.org/cache/epub/24022/pg24022.txt -o ./input/book.txt
 ```
 
-## 環境変数の設定
+### 4. 環境変数の設定
 
-### OpenAI を使う場合
+`.env.example` をコピーして `.env` を作成します。
 
-`.env` の `GRAPHRAG_API_KEY` に OpenAI の API キーを設定します。
+```bash
+cp .env.example .env
+```
+
+`.env` には以下の変数が含まれます。ローカル環境では主に **API credentials** の設定が必要です。
 
 ```env
-GRAPHRAG_API_KEY=<your-openai-api-key>
+# --- API credentials ---
+GRAPHRAG_API_KEY=<Azure OpenAI の API キー>
+GRAPHRAG_API_BASE=https://<your-resource>.services.ai.azure.com
 ```
 
-### Azure OpenAI を使う場合
+モデル名・デプロイメント名は実際の Microsoft Foundry リソースに合わせて変更してください。
 
-`.env` に API キーを設定した上で、`settings.yaml` のモデル設定を編集します。
+#### Azure マネージド ID を使う場合（ローカル）
 
-```yaml
-model_provider: azure
-auth_method: api_key
-api_key: ${GRAPHRAG_API_KEY}
-api_base: https://<instance>.openai.azure.com
-```
-
-### Azure マネージド ID を使う場合
-
-`settings.yaml` の `auth_method` を変更し、`api_key` の行を削除します。
+API キーの代わりにローカルの Azure CLI 認証を使う場合、`settings.yaml` の各モデルの `auth_method` を変更し、`api_key` の行を削除します。
 
 ```yaml
 auth_method: azure_managed_identity
 ```
 
-その後、以下のコマンドでログインしてください。
+次に Azure CLI でログインします。
 
 ```bash
 az login
 ```
 
-## インデックスの構築
+### 5. インデックスの構築
 
 ```bash
 uv run graphrag index --root .
@@ -91,7 +75,7 @@ uv run graphrag index --root .
 
 完了後、`./output/` に Parquet ファイル群が生成されます。
 
-### インデックスの更新（差分のみ）
+#### インデックスの更新（差分のみ）
 
 新しいドキュメントを追加したあとは `standard-update` または `fast-update` で差分のみ更新できます。
 
@@ -99,15 +83,15 @@ uv run graphrag index --root .
 uv run graphrag index --root . --method standard-update
 ```
 
-## クエリの実行
+### 6. クエリの実行
 
-### グローバル検索（高レベルな質問）
+#### グローバル検索（高レベルな質問）
 
 ```bash
 uv run graphrag query "What are the top themes in this story?"
 ```
 
-### ローカル検索（特定の登場人物など）
+#### ローカル検索（特定の登場人物など）
 
 ```bash
 uv run graphrag query \
@@ -115,25 +99,9 @@ uv run graphrag query \
   --method local
 ```
 
-## MCP サーバー
+### 7. MCP サーバーの起動（stdio）
 
-GraphRAG のクエリ機能を [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) ツールとして公開します。  
-Claude Desktop・Cursor・VS Code などの MCP 対応クライアントや、HTTP 経由で呼び出せます。
-
-### 公開されるツール
-
-| ツール名 | 説明 |
-|----------|------|
-| `graphrag_global_search` | コミュニティサマリー全体を横断する広域検索（テーマ・傾向の質問に最適） |
-| `graphrag_local_search` | エンティティ周辺コンテキストを使った局所検索（人物・組織の詳細に最適） |
-| `graphrag_drift_search` | グローバル＋ローカルのハイブリッド DRIFT 検索 |
-| `graphrag_basic_search` | テキストチャンクへのベクトル類似度検索（最も軽量） |
-
-すべてのツールは `response_type` パラメーターで回答形式を指定できます（例: `"Multiple Paragraphs"`, `"List of 3-7 Points"` など）。
-
-### サーバーの起動（stdio トランスポート）
-
-ローカルの MCP クライアント（Claude Desktop / Cursor / VS Code）向け。
+ローカルの MCP クライアント（Claude Desktop / Cursor / VS Code）向けには **stdio トランスポート**を使います。
 
 ```bash
 uv run graphrag-mcp
@@ -147,28 +115,18 @@ uv run python main.py
 GRAPHRAG_ROOT=/path/to/project uv run graphrag-mcp
 ```
 
-### サーバーの起動（HTTP トランスポート / Azure App Service）
+#### 公開されるツール
 
-Azure App Service や任意の HTTP サーバーとして公開する場合は `MCP_TRANSPORT` 環境変数を設定します。
+| ツール名 | 説明 |
+|----------|------|
+| `graphrag_global_search` | コミュニティサマリー全体を横断する広域検索（テーマ・傾向の質問に最適） |
+| `graphrag_local_search` | エンティティ周辺コンテキストを使った局所検索（人物・組織の詳細に最適） |
+| `graphrag_drift_search` | グローバル＋ローカルのハイブリッド DRIFT 検索 |
+| `graphrag_basic_search` | テキストチャンクへのベクトル類似度検索（最も軽量） |
 
-```bash
-MCP_TRANSPORT=streamable-http uv run graphrag-mcp
-# ポートを指定する場合
-MCP_TRANSPORT=streamable-http PORT=8080 uv run graphrag-mcp
-```
+すべてのツールは `response_type` パラメーターで回答形式を指定できます（例: `"Multiple Paragraphs"`, `"List of 3-7 Points"` など）。
 
-接続先エンドポイント: `http://localhost:8000/mcp`
-
-### 環境変数（MCP サーバー）
-
-| 環境変数 | デフォルト | 説明 |
-|----------|-----------|------|
-| `GRAPHRAG_ROOT` | `.`（カレントディレクトリ） | GraphRAG プロジェクトのルートパス |
-| `MCP_TRANSPORT` | `stdio` | トランスポート種別: `stdio` または `streamable-http` |
-| `PORT` | `8000` | HTTP モード時のリスンポート（Azure App Service は自動設定） |
-| `MCP_PORT` | `8000` | `PORT` が未設定の場合に参照する代替ポート変数 |
-
-### Claude Desktop への登録例（stdio）
+#### Claude Desktop への登録例
 
 `claude_desktop_config.json` に以下を追加します。
 
@@ -186,135 +144,28 @@ MCP_TRANSPORT=streamable-http PORT=8080 uv run graphrag-mcp
 }
 ```
 
-### HTTP クライアントからの接続例
+### 8. 開発・テスト
 
-HTTP トランスポートで起動している場合、任意の MCP 対応 HTTP クライアントから接続できます。
-
-```bash
-# MCP Inspector で検証
-npx @modelcontextprotocol/inspector
-# → Inspector UI で http://localhost:8000/mcp へ接続
-```
-
----
-
-## Azure 環境での利用
-
-### ストレージ・データベース・ベクトルストアの Azure 移行
-
-`settings.yaml` には各セクションにローカルと Azure 向けの設定がコメントで記載されています。  
-使用するサービスに応じてコメントを切り替えてください。
-
-#### Azure Blob Storage（入出力・キャッシュ・レポート）
-
-```yaml
-input_storage:
-  type: blob
-  connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
-  container_name: graphrag-input
-  # マネージド ID を使う場合は connection_string の代わりに account_url を指定
-  # account_url: https://<storageaccount>.blob.core.windows.net
-```
-
-同様に `output_storage`、`reporting`、`cache.storage` も変更します。
-
-#### Azure AI Search（ベクトルストア）
-
-```yaml
-vector_store:
-  type: azure_ai_search
-  url: https://<searchservice>.search.windows.net
-  api_key: ${AZURE_SEARCH_API_KEY}   # マネージド ID 使用時は省略可
-  # audience: https://search.azure.com  # マネージド ID 使用時に指定
-```
-
-#### CosmosDB（ベクトルストア）
-
-```yaml
-vector_store:
-  type: cosmosdb
-  url: https://<account>.documents.azure.com
-  connection_string: ${COSMOSDB_CONNECTION_STRING}
-  database_name: graphrag
-```
-
-### Azure App Service へのデプロイ
-
-HTTP トランスポートを有効にした状態で Azure App Service にデプロイできます。
-
-1. App Service の「アプリケーション設定」で以下の環境変数を設定します。
-
-   | 名前 | 値 |
-   |------|-----|
-   | `MCP_TRANSPORT` | `streamable-http` |
-   | `GRAPHRAG_ROOT` | `/home/site/wwwroot`（またはデータパス） |
-   | `GRAPHRAG_API_KEY` | Azure OpenAI の API キー |
-   | `GRAPHRAG_API_BASE` | Azure OpenAI エンドポイント |
-
-2. App Service は自動的に `PORT` 環境変数を設定します。サーバーはこれを自動検出します。
-
-3. スタートアップコマンドを設定します:
-
-   ```bash
-   uv run graphrag-mcp
-   ```
-
----
-
-## グラフデータベースの定期更新（GitHub Actions）
-
-`.github/workflows/graphrag-index.yml` に GraphRAG CLI を使った自動インデックス作成ワークフローが含まれています。
-
-### スケジュール
-
-デフォルトでは **毎週日曜 UTC 02:00** に実行されます。  
-`cron` 式を変更することでスケジュールをカスタマイズできます。
-
-### 手動実行
-
-GitHub Actions の UI から **「Run workflow」** をクリックして手動実行できます。  
-インデックス方法（`standard` / `fast` / `standard-update` / `fast-update`）を選択できます。
-
-### 必要な GitHub Secrets
-
-リポジトリの **Settings → Secrets and variables → Actions** に以下を登録してください。
-
-| Secret 名 | 説明 |
-|-----------|------|
-| `GRAPHRAG_API_KEY` | Azure OpenAI または OpenAI の API キー |
-| `GRAPHRAG_API_BASE` | Azure OpenAI エンドポイント URL |
-| `AZURE_STORAGE_CONNECTION_STRING` | Azure Blob Storage 使用時（任意） |
-
-### Azure OIDC フェデレーション認証（推奨）
-
-API キーの代わりに OpenID Connect（OIDC）でマネージド ID 認証を使う場合は、  
-ワークフローファイル内の `Azure Login (OIDC)` ステップのコメントを外し、  
-`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID` Secrets を設定してください。
-
----
-
-## 開発・テスト
-
-### 開発用依存パッケージのインストール
+#### 開発用依存パッケージのインストール
 
 ```bash
 uv sync --group dev
 ```
 
-### リンター（Ruff）の実行
+#### リンター（Ruff）の実行
 
 ```bash
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-### テストの実行
+#### テストの実行
 
 ```bash
 uv run pytest
 ```
 
-### 自動フォーマット
+#### 自動フォーマット
 
 ```bash
 uv run ruff format .
@@ -322,6 +173,112 @@ uv run ruff check --fix .
 ```
 
 ---
+
+## Azure 環境での利用
+
+### 1. Azure リソース利用選択
+
+`settings.yaml` にはローカル（`file` / `lancedb`）と Azure 向けの設定がコメントで並記されています。  
+Azure 移行時は使用するサービスに応じてコメントを切り替え、対応する環境変数を設定してください。  
+具体的なパラメーター名は `settings.yaml` のコメントを参照してください。
+
+| コンポーネント | `file`（ローカル） | `blob`（Blob Storage） | `cosmosdb`（CosmosDB） | `azure_ai_search` |
+|---|:---:|:---:|:---:|:---:|
+| `input_storage` | ○ | ○ | ○ | — |
+| `output_storage` | ○ | ○ | ○ | — |
+| `reporting` | ○ | ○ | — | — |
+| `cache.storage` | ○ | ○ | ○ | — |
+| `vector_store` | `lancedb`（ローカル） | — | ○ | ○ |
+
+### 2. 環境変数の設定
+
+Azure 環境では、Azure Blob Storage / CosmosDB / AI Search に切り替えるための変数を設定します。`.env` に必要な情報を入力してください。認証でマネージド ID を利用する場合は、`auth_method` を `azure_managed_identity` にします。
+
+### 3. インデックスの構築（GitHub Actions）
+
+`.github/workflows/graphrag-index.yml` に GraphRAG CLI を使った自動インデックス作成ワークフローが含まれています。
+
+#### スケジュール
+
+デフォルトでは **毎週日曜 0:00（JST）** に実行されます。  
+`cron` 式を変更することでスケジュールをカスタマイズできます。
+
+#### 手動実行
+
+GitHub Actions の UI から **「Run workflow」** をクリックして手動実行できます。  
+インデックス方法（`standard` / `fast` / `standard-update` / `fast-update`）を選択できます。
+
+#### API キーを使う場合の GitHub Secrets 設定
+
+リポジトリの **Settings → Secrets and variables → Actions** に以下を登録します。
+
+| Secret 名 | 説明 |
+|-----------|------|
+| `GRAPHRAG_API_KEY` | Azure OpenAI の API キー |
+| `GRAPHRAG_API_BASE` | Azure OpenAI エンドポイント URL |
+| `AZURE_STORAGE_CONNECTION_STRING` | Azure Blob Storage を使う場合 |
+
+#### マネージド ID（OIDC フェデレーション認証）を使う場合
+
+API キーの代わりに OpenID Connect（OIDC）で認証する場合、ワークフローファイルの `Azure Login (OIDC)` ステップのコメントを外し、以下の Secrets を設定してください。
+
+| Secret 名 | 説明 |
+|-----------|------|
+| `AZURE_CLIENT_ID` | サービスプリンシパルまたはマネージド ID のクライアント ID |
+| `AZURE_TENANT_ID` | Azure テナント ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure サブスクリプション ID |
+
+またワークフローの `permissions` に `id-token: write` を追加してください。
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+```
+
+### 4. MCP サーバーのデプロイ（Azure App Service）
+
+Azure App Service に公開する場合は **streamable-http トランスポート**を使います。
+
+#### App Service の環境変数設定
+
+「アプリケーション設定」に以下を追加します。
+
+| 名前 | 値 |
+|------|-----|
+| `MCP_TRANSPORT` | `streamable-http` |
+| `GRAPHRAG_ROOT` | `/home/site/wwwroot`（またはデータパス） |
+| `GRAPHRAG_API_KEY` | Azure OpenAI の API キー（マネージド ID 使用時は不要） |
+| `GRAPHRAG_API_BASE` | Azure OpenAI エンドポイント |
+| `GRAPHRAG_COMPLETION_MODEL` | Completion モデル名 |
+| `GRAPHRAG_COMPLETION_DEPLOYMENT_NAME` | Completion デプロイメント名 |
+| `GRAPHRAG_EMBEDDING_MODEL` | Embedding モデル名 |
+| `GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME` | Embedding デプロイメント名 |
+
+App Service は `PORT` 環境変数を自動設定します。サーバーはこれを自動検出します。
+
+#### スタートアップコマンド
+
+```bash
+uv run graphrag-mcp
+```
+
+#### HTTP クライアントからの接続確認
+
+```bash
+# MCP Inspector で検証
+npx @modelcontextprotocol/inspector
+# → Inspector UI で http://localhost:8000/mcp へ接続
+```
+
+#### MCP サーバー環境変数一覧
+
+| 環境変数 | デフォルト | 説明 |
+|----------|-----------|------|
+| `GRAPHRAG_ROOT` | `.`（カレントディレクトリ） | GraphRAG プロジェクトのルートパス |
+| `MCP_TRANSPORT` | `stdio` | `stdio`（ローカル）または `streamable-http`（Azure） |
+| `PORT` | `8000` | HTTP モード時のリスンポート（App Service は自動設定） |
+| `MCP_PORT` | `8000` | `PORT` が未設定の場合に参照する代替ポート変数 |
 
 ## 参考リンク
 
