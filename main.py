@@ -1,6 +1,7 @@
 """GraphRAG MCP Server
 
-GraphRAG のクエリ機能を MCP ツールとして公開します（stdio トランスポート）。
+GraphRAG のクエリ機能を MCP ツールとして公開します。
+stdio（ローカル）と Streamable HTTP（Azure App Service 等）の両トランスポートに対応しています。
 
 利用可能なツール:
   - graphrag_global_search  : コミュニティサマリーを横断した広域検索
@@ -8,26 +9,31 @@ GraphRAG のクエリ機能を MCP ツールとして公開します（stdio ト
   - graphrag_drift_search   : グローバル+ローカルのハイブリッド検索
   - graphrag_basic_search   : テキストチャンクへのベクトル類似度検索
 
-起動方法:
+起動方法（stdio）:
   uv run graphrag-mcp          # pyproject.toml のスクリプト経由
   python main.py               # 直接実行
-  GRAPHRAG_ROOT=/path/to/proj python main.py  # ルートディレクトリを指定
+
+起動方法（HTTP / Azure App Service）:
+  MCP_TRANSPORT=streamable-http uv run graphrag-mcp
+  MCP_TRANSPORT=streamable-http PORT=8000 python main.py
 
 環境変数:
-  GRAPHRAG_ROOT  GraphRAG プロジェクトのルートディレクトリ（デフォルト: カレントディレクトリ）
+  GRAPHRAG_ROOT   GraphRAG プロジェクトのルートディレクトリ（デフォルト: カレントディレクトリ）
+  MCP_TRANSPORT   トランスポート種別: stdio（デフォルト）または streamable-http
+  PORT            HTTP モード時のリスンポート（デフォルト: 8000）。Azure App Service は自動設定
+  MCP_PORT        PORT の代替環境変数（PORT が未設定の場合に参照）
 """
 
 import os
 from pathlib import Path
 
-import pandas as pd
-from mcp.server.fastmcp import FastMCP
-
 import graphrag.api as api
+import pandas as pd
 
 # --- 公開 API で提供されているシンボル ----------------------------------------
 from graphrag.data_model import DataReader
 from graphrag_storage import create_storage
+from mcp.server.fastmcp import FastMCP
 
 # --- 内部 API（v3.0.6 時点で公開 API が存在しない）--------------------------
 # graphrag.config および graphrag_storage の内部パスはバージョン変更で移動する可能性あり
@@ -290,8 +296,26 @@ async def graphrag_basic_search(
 
 
 def main() -> None:
-    """MCP サーバーを起動（stdio トランスポート）"""
-    mcp.run()
+    """MCP サーバーを起動（stdio または HTTP トランスポート）。
+
+    環境変数 MCP_TRANSPORT で起動モードを切り替えます。
+
+    - MCP_TRANSPORT=stdio (デフォルト):
+        標準入出力を使った MCP クライアント（Claude Desktop / Cursor 等）向け。
+    - MCP_TRANSPORT=streamable-http:
+        Azure App Service や任意の HTTP サーバーとして公開する場合に使用。
+        PORT（または MCP_PORT）環境変数でリスンポートを指定します。
+    """
+    transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
+
+    if transport == "streamable-http":
+        port = int(os.environ.get("PORT", os.environ.get("MCP_PORT", "8000")))
+        # Azure App Service では 0.0.0.0 へのバインドが必要
+        mcp.settings.host = "0.0.0.0"  # noqa: S104
+        mcp.settings.port = port
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
