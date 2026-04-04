@@ -938,8 +938,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "graphrag", specifier = "==3.0.6" },
-    { name = "mcp", specifier = ">=1.0" },
+    { name = "graphrag", specifier = ">=3.0.6,<4.0" },
+    { name = "mcp", specifier = ">=1.0,<2.0" },
 ]
 
 [[package]]
