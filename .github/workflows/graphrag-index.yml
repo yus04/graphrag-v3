@@ -1,0 +1,137 @@
+# GraphRAG インデックス定期実行ワークフロー
+#
+# このワークフローは GraphRAG CLI を使ってグラフデータベースを構築・更新します。
+# スケジュール実行（毎週日曜 UTC 02:00）と手動トリガーの両方に対応しています。
+#
+# 必要な GitHub Secrets:
+#   GRAPHRAG_API_KEY        - Azure OpenAI または OpenAI の API キー
+#   GRAPHRAG_API_BASE       - Azure OpenAI エンドポイント URL
+#                             例: https://<instance>.openai.azure.com
+#
+# Azure Blob Storage を使う場合は追加で以下の Secrets が必要です:
+#   AZURE_STORAGE_CONNECTION_STRING - Azure Storage 接続文字列
+#                                     （または下記の OIDC フェデレーション認証を使用）
+#
+# Azure マネージド ID / OIDC フェデレーション認証を使う場合は以下の Secrets が必要です:
+#   AZURE_CLIENT_ID         - サービスプリンシパルまたはマネージド ID のクライアント ID
+#   AZURE_TENANT_ID         - Azure テナント ID
+#   AZURE_SUBSCRIPTION_ID   - Azure サブスクリプション ID
+
+name: GraphRAG Index
+
+on:
+  # スケジュール実行: 毎週日曜 UTC 02:00
+  schedule:
+    - cron: "0 2 * * 0"
+
+  # 手動トリガー: GitHub Actions UI から実行可能
+  workflow_dispatch:
+    inputs:
+      method:
+        description: "インデックス作成方法"
+        required: false
+        default: "standard"
+        type: choice
+        options:
+          - standard          # 全ドキュメントを対象とした標準インデックス作成
+          - fast              # 高速インデックス作成（一部精度を犠牲にする）
+          - standard-update   # 変更分のみ更新（既存インデックスがある場合）
+          - fast-update       # 高速差分更新
+      verbose:
+        description: "詳細ログを出力する"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  contents: read
+  # Azure OIDC 認証を使う場合は以下を有効化してください
+  # id-token: write
+
+jobs:
+  graphrag-index:
+    name: Build GraphRAG Index
+    runs-on: ubuntu-latest
+
+    steps:
+      # ──────────────────────────────────────────────
+      # 1. ソースコードのチェックアウト
+      # ──────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ──────────────────────────────────────────────
+      # 2. Python 環境のセットアップ
+      # ──────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ──────────────────────────────────────────────
+      # 3. uv のインストール
+      # ──────────────────────────────────────────────
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # ──────────────────────────────────────────────
+      # 4. 依存パッケージのインストール
+      # ──────────────────────────────────────────────
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      # ──────────────────────────────────────────────
+      # 5. Azure へのログイン（OIDC フェデレーション認証 – 任意）
+      #    settings.yaml で auth_method: azure_managed_identity を使う場合に有効化
+      # ──────────────────────────────────────────────
+      # - name: Azure Login (OIDC)
+      #   uses: azure/login@v2
+      #   with:
+      #     client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      #     tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      #     subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ──────────────────────────────────────────────
+      # 6. GraphRAG インデックス作成
+      #    --method で作成方法、--no-cache で LLM キャッシュを無効化
+      # ──────────────────────────────────────────────
+      - name: Run GraphRAG index
+        env:
+          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
+          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
+          # Azure Blob Storage を使う場合
+          # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          METHOD="${{ github.event.inputs.method || 'standard' }}"
+          VERBOSE_FLAG=""
+          if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
+            VERBOSE_FLAG="--verbose"
+          fi
+
+          echo "=== GraphRAG インデックス作成を開始します ==="
+          echo "方法 (method): ${METHOD}"
+          echo "ルートディレクトリ: ."
+
+          uv run graphrag index \
+            --root . \
+            --method "${METHOD}" \
+            ${VERBOSE_FLAG}
+
+          echo "=== インデックス作成が完了しました ==="
+
+      # ──────────────────────────────────────────────
+      # 7. インデックス成果物のアップロード（ローカルストレージ使用時のみ）
+      #    Azure Blob Storage を使う場合はこのステップは不要です
+      # ──────────────────────────────────────────────
+      - name: Upload index artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphrag-output-${{ github.run_id }}
+          path: |
+            output/
+            logs/
+          retention-days: 7
+          if-no-files-found: warn
