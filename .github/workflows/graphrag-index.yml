@@ -3,6 +3,17 @@
 # このワークフローは GraphRAG CLI を使ってグラフデータベースを構築・更新します。
 # スケジュール実行（毎週日曜 JST 00:00 / UTC 土曜 15:00）と手動トリガーの両方に対応しています。
 #
+# ■ インデックス作成方法の自動判定（method: auto）
+#   output/entities.parquet の存在を確認し、
+#   - ファイルが存在する場合 → standard-update（差分更新）
+#   - ファイルが存在しない場合 → standard（フル構築）
+#   を自動で選択します。
+#
+# ■ ローカルファイルストレージを使用する場合の注意
+#   output/ ディレクトリは .gitignore に含まれているため、GitHub Actions の
+#   キャッシュ（actions/cache）を使ってジョブ間でインデックスを永続化します。
+#   Azure Blob Storage を使用する場合はキャッシュステップは不要です。
+#
 # 必要な GitHub Secrets:
 #   GRAPHRAG_API_KEY        - Azure OpenAI または OpenAI の API キー
 #   GRAPHRAG_API_BASE       - Azure OpenAI エンドポイント URL
@@ -28,15 +39,16 @@ on:
   workflow_dispatch:
     inputs:
       method:
-        description: "インデックス作成方法"
+        description: "インデックス作成方法（auto = インデックスの有無を自動判定）"
         required: false
-        default: "standard"
+        default: "auto"
         type: choice
         options:
-          - standard          # 全ドキュメントを対象とした標準インデックス作成
-          - fast              # 高速インデックス作成（一部精度を犠牲にする）
-          - standard-update   # 変更分のみ更新（既存インデックスがある場合）
-          - fast-update       # 高速差分更新
+          - auto              # インデックスの有無を自動判定（推奨）
+          - standard          # フルビルド: graphrag index --method standard
+          - fast              # フルビルド高速版: graphrag index --method fast
+          - update-standard   # 差分更新: graphrag update --method standard
+          - update-fast       # 差分更新高速版: graphrag update --method fast
       verbose:
         description: "詳細ログを出力する"
         required: false
@@ -83,7 +95,71 @@ jobs:
         run: uv sync --no-dev
 
       # ──────────────────────────────────────────────
-      # 5. Azure へのログイン（OIDC フェデレーション認証 – 任意）
+      # 5. 前回のインデックスをキャッシュから復元（ローカルストレージ使用時のみ）
+      #    Azure Blob Storage を使う場合はこのステップを削除してください。
+      #    restore-keys によって常に最新のキャッシュを取得します。
+      # ──────────────────────────────────────────────
+      - name: Restore index cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: output/
+          key: graphrag-index-${{ github.sha }}
+          restore-keys: |
+            graphrag-index-
+
+      # ──────────────────────────────────────────────
+      # 6. インデックスの存在確認とコマンドの自動選択
+      #
+      #    【重要】GraphRAG のサブコマンドの使い分け
+      #      graphrag index  → is_update_run=False: previous_table_provider が設定されない
+      #      graphrag update → is_update_run=True : previous_table_provider が設定される
+      #    差分更新ワークフロー (load_update_documents 等) は previous_table_provider
+      #    が必須なので、必ず graphrag update で実行しなければなりません。
+      #    graphrag index --method standard-update とすると
+      #    "previous_table_provider is required" エラーになります。
+      #
+      #    output/entities.parquet の存在で判定します。
+      #    method が "auto" またはスケジュール実行の場合に自動判定が適用されます。
+      # ──────────────────────────────────────────────
+      - name: Detect existing index and resolve method
+        id: resolve-method
+        run: |
+          REQUESTED="${{ github.event.inputs.method || 'auto' }}"
+
+          if [[ -f "output/entities.parquet" ]]; then
+            echo "INDEX_EXISTS=true" >> "$GITHUB_ENV"
+            echo "既存のインデックスが見つかりました (output/entities.parquet)"
+            # 差分更新: graphrag update --method standard を使う
+            AUTO_SUBCMD="update"
+            AUTO_BASE_METHOD="standard"
+          else
+            echo "INDEX_EXISTS=false" >> "$GITHUB_ENV"
+            echo "既存のインデックスは見つかりませんでした。フルビルドを実行します。"
+            # フルビルド: graphrag index --method standard を使う
+            AUTO_SUBCMD="index"
+            AUTO_BASE_METHOD="standard"
+          fi
+
+          if [[ "$REQUESTED" == "auto" ]]; then
+            SUBCMD="$AUTO_SUBCMD"
+            BASE_METHOD="$AUTO_BASE_METHOD"
+          elif [[ "$REQUESTED" == update-* ]]; then
+            # update-standard / update-fast → graphrag update --method {standard|fast}
+            SUBCMD="update"
+            BASE_METHOD="${REQUESTED#update-}"
+          else
+            # standard / fast → graphrag index --method {standard|fast}
+            SUBCMD="index"
+            BASE_METHOD="$REQUESTED"
+          fi
+
+          echo "GRAPHRAG_SUBCMD=${SUBCMD}" >> "$GITHUB_ENV"
+          echo "GRAPHRAG_METHOD=${BASE_METHOD}" >> "$GITHUB_ENV"
+          echo "サブコマンド: ${SUBCMD}, ベースメソッド: ${BASE_METHOD}"
+
+      # ──────────────────────────────────────────────
+      # 7. Azure へのログイン（OIDC フェデレーション認証 – 任意）
       #    settings.yaml で auth_method: azure_managed_identity を使う場合に有効化
       # ──────────────────────────────────────────────
       # - name: Azure Login (OIDC)
@@ -94,8 +170,9 @@ jobs:
       #     subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # ──────────────────────────────────────────────
-      # 6. GraphRAG インデックス作成
-      #    --method で作成方法、--no-cache で LLM キャッシュを無効化
+      # 8. GraphRAG インデックス作成
+      #    フルビルド  : uv run graphrag index  --root . --method {standard|fast}
+      #    差分更新    : uv run graphrag update --root . --method {standard|fast}
       # ──────────────────────────────────────────────
       - name: Run GraphRAG index
         env:
@@ -104,26 +181,39 @@ jobs:
           # Azure Blob Storage を使う場合
           # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
         run: |
-          METHOD="${{ github.event.inputs.method || 'standard' }}"
           VERBOSE_FLAG=""
           if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
             VERBOSE_FLAG="--verbose"
           fi
 
           echo "=== GraphRAG インデックス作成を開始します ==="
-          echo "方法 (method): ${METHOD}"
+          echo "サブコマンド: ${GRAPHRAG_SUBCMD}"
+          echo "ベースメソッド: ${GRAPHRAG_METHOD}"
+          echo "既存インデックス: ${INDEX_EXISTS}"
           echo "ルートディレクトリ: ."
 
-          uv run graphrag index \
+          uv run graphrag "${GRAPHRAG_SUBCMD}" \
             --root . \
-            --method "${METHOD}" \
+            --method "${GRAPHRAG_METHOD}" \
             ${VERBOSE_FLAG}
 
           echo "=== インデックス作成が完了しました ==="
 
       # ──────────────────────────────────────────────
-      # 7. インデックス成果物のアップロード（ローカルストレージ使用時のみ）
-      #    Azure Blob Storage を使う場合はこのステップは不要です
+      # 9. 更新後のインデックスをキャッシュに保存（ローカルストレージ使用時のみ）
+      #    Azure Blob Storage を使う場合はこのステップを削除してください。
+      #    常に新しいキャッシュエントリとして保存します。
+      # ──────────────────────────────────────────────
+      - name: Save index cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: output/
+          key: graphrag-index-${{ github.sha }}
+
+      # ──────────────────────────────────────────────
+      # 10. インデックス成果物のアップロード（ローカルストレージ使用時のみ）
+      #     Azure Blob Storage を使う場合はこのステップは不要です
       # ──────────────────────────────────────────────
       - name: Upload index artifacts
         if: always()

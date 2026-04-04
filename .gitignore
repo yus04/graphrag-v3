@@ -23,3 +23,6 @@ logs/
 
 # output
 output/
+
+# update_output
+update_output/
