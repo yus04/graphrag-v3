@@ -193,21 +193,37 @@ jobs:
       # ──────────────────────────────────────────────
       - name: Run GraphRAG index
         env:
-          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
-          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
-          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL }}
-          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME }}
-          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL }}
-          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME }}
-          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT }}
-          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
-          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS }}
-          GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE }}
-          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING }}
-          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE }}
-          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL }}
-          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
+          # --- API credentials ---
+          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY || '' }}
+          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE || '' }}
+          # --- Completion model ---
+          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL || 'gpt-4.1' }}
+          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}
+          # --- Embedding model ---
+          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL || 'text-embedding-3-large' }}
+          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME || 'text-embedding-3-large' }}
+          # --- Local storage paths ---
+          GRAPHRAG_INPUT_BASE_DIR: ${{ secrets.GRAPHRAG_INPUT_BASE_DIR || 'input' }}
+          GRAPHRAG_OUTPUT_BASE_DIR: ${{ secrets.GRAPHRAG_OUTPUT_BASE_DIR || 'output' }}
+          GRAPHRAG_LOGS_BASE_DIR: ${{ secrets.GRAPHRAG_LOGS_BASE_DIR || 'logs' }}
+          GRAPHRAG_CACHE_BASE_DIR: ${{ secrets.GRAPHRAG_CACHE_BASE_DIR || 'cache' }}
+          GRAPHRAG_LANCEDB_URI: ${{ secrets.GRAPHRAG_LANCEDB_URI || 'output/lancedb' }}
+          # --- Azure Blob Storage ---
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING || '' }}
+          AZURE_STORAGE_ACCOUNT_URL: ${{ secrets.AZURE_STORAGE_ACCOUNT_URL || '' }}
+          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT || 'graphrag-input' }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT || 'graphrag-output' }}
+          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS || 'graphrag-logs' }}
+          GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE || 'graphrag-cache' }}
+          # --- Azure CosmosDB ---
+          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING || '' }}
+          COSMOSDB_URL: ${{ secrets.COSMOSDB_URL || '' }}
+          COSMOSDB_ACCOUNT_URL: ${{ secrets.COSMOSDB_ACCOUNT_URL || '' }}
+          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE || 'graphrag' }}
+          # --- Azure AI Search ---
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY || '' }}
+          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL || '' }}
+          AZURE_SEARCH_AUDIENCE: ${{ secrets.AZURE_SEARCH_AUDIENCE || 'https://search.azure.com' }}
         run: |
           VERBOSE_FLAG=""
           if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
@@ -236,19 +252,35 @@ jobs:
       - name: Run integration tests
         if: success()
         env:
-          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
-          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
-          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL }}
-          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME }}
-          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL }}
-          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME }}
-          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT }}
-          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
-          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS }}
-          GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE }}
-          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING }}
-          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE }}
-          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL }}
-          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
+          # --- API credentials ---
+          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY || '' }}
+          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE || '' }}
+          # --- Completion model ---
+          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL || 'gpt-4.1' }}
+          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}
+          # --- Embedding model ---
+          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL || 'text-embedding-3-large' }}
+          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME || 'text-embedding-3-large' }}
+          # --- Local storage paths ---
+          GRAPHRAG_INPUT_BASE_DIR: ${{ secrets.GRAPHRAG_INPUT_BASE_DIR || 'input' }}
+          GRAPHRAG_OUTPUT_BASE_DIR: ${{ secrets.GRAPHRAG_OUTPUT_BASE_DIR || 'output' }}
+          GRAPHRAG_LOGS_BASE_DIR: ${{ secrets.GRAPHRAG_LOGS_BASE_DIR || 'logs' }}
+          GRAPHRAG_CACHE_BASE_DIR: ${{ secrets.GRAPHRAG_CACHE_BASE_DIR || 'cache' }}
+          GRAPHRAG_LANCEDB_URI: ${{ secrets.GRAPHRAG_LANCEDB_URI || 'output/lancedb' }}
+          # --- Azure Blob Storage ---
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING || '' }}
+          AZURE_STORAGE_ACCOUNT_URL: ${{ secrets.AZURE_STORAGE_ACCOUNT_URL || '' }}
+          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT || 'graphrag-input' }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT || 'graphrag-output' }}
+          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS || 'graphrag-logs' }}
+          GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE || 'graphrag-cache' }}
+          # --- Azure CosmosDB ---
+          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING || '' }}
+          COSMOSDB_URL: ${{ secrets.COSMOSDB_URL || '' }}
+          COSMOSDB_ACCOUNT_URL: ${{ secrets.COSMOSDB_ACCOUNT_URL || '' }}
+          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE || 'graphrag' }}
+          # --- Azure AI Search ---
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY || '' }}
+          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL || '' }}
+          AZURE_SEARCH_AUDIENCE: ${{ secrets.AZURE_SEARCH_AUDIENCE || 'https://search.azure.com' }}
         run: uv run pytest tests/test_server_integration.py -v
