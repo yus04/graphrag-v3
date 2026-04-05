@@ -396,7 +396,25 @@ permissions:
 npx @modelcontextprotocol/inspector
 ```
 
-→ Inspector UI で http://localhost:8000/mcp へ接続
+Inspector UI で以下の設定を行う。
+
+- Transport Type：`Streamable HTTP`
+- URL：`https://<app-service-url>/mcp`
+- Connection Type：`Direct`
+
+以下のような画面で Tools からクエリを投げることができる。
+
+![MCP Inspector の UI](asset/mcp-inspector-ui.png)
+
+`graphrag_global_search` のツールで以下のようなクエリを投げる。
+
+```
+What are the top themes in this story?
+```
+
+Run Tool より、クエリからレスポンスが返ってきたら MCP サーバーの動作確認完了。
+
+![MCP レスポンス](asset/mcp-response.png)
 
 #### 注意事項
 
