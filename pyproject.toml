@@ -6,13 +6,12 @@ requires-python = ">=3.12"
 dependencies = [
     "graphrag>=3.0.6,<4.0",
     "mcp>=1.0,<2.0",
+    "uvicorn>=0.30,<1.0",
 ]
 
 [project.optional-dependencies]
-# HTTP トランスポート（Azure App Service 等）で起動する場合に必要
-http = [
-    "uvicorn>=0.30,<1.0",
-]
+# HTTP トランスポート（Azure App Service 等）で起動する場合に必要（uvicorn は本体依存に含まれる）
+http = []
 
 [project.scripts]
 graphrag-mcp = "main:main"
