@@ -30,12 +30,17 @@ from pathlib import Path
 import graphrag.api as api
 import pandas as pd
 
+import anyio
+import uvicorn
+
 # --- 公開 API で提供されているシンボル ----------------------------------------
 from graphrag.data_model import DataReader
 from graphrag_storage import create_storage
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.middleware.cors import CORSMiddleware
 
 # --- 内部 API（v3.0.6 時点で公開 API が存在しない）--------------------------
 # graphrag.config および graphrag_storage の内部パスはバージョン変更で移動する可能性あり
@@ -323,10 +328,35 @@ def main() -> None:
 
     if transport == "streamable-http":
         port = int(os.environ.get("PORT", os.environ.get("MCP_PORT", "8000")))
-        # Azure App Service では 0.0.0.0 へのバインドが必要
-        mcp.settings.host = "0.0.0.0"  # noqa: S104
+        mcp.settings.host = "0.0.0.0"
         mcp.settings.port = port
-        mcp.run(transport="streamable-http")
+        mcp.settings.stateless_http = True
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
+
+        # CORS ミドルウェアを追加（MCP Inspector 等のブラウザベースクライアントに対応）
+        starlette_app = mcp.streamable_http_app()
+        starlette_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+        async def _serve() -> None:
+            config = uvicorn.Config(
+                starlette_app,
+                host="0.0.0.0",  # noqa: S104
+                port=port,
+                log_level=mcp.settings.log_level.lower(),
+                proxy_headers=True,
+                forwarded_allow_ips="*",
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
+
+        anyio.run(_serve)
     else:
         mcp.run(transport="stdio")
 
