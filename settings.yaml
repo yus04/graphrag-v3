@@ -67,14 +67,14 @@ input_storage:
   
   # ----- Azure 環境（CosmosDB・API キー認証） -----
   # type: cosmosdb
-  # connection_string: ${COSMOSDB_CONNECTION_STRING}
+  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
   # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
   
   # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
   # [公式ドキュメント未記載・コード実装あり]
   # type: cosmosdb
-  # account_url: ${COSMOSDB_ACCOUNT_URL}
+  # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
   # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
@@ -95,14 +95,14 @@ output_storage:
   
   # ----- Azure 環境（CosmosDB・API キー認証） -----
   # type: cosmosdb
-  # connection_string: ${COSMOSDB_CONNECTION_STRING}
+  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
   # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
   
   # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
   # [公式ドキュメント未記載・コード実装あり]
   # type: cosmosdb
-  # account_url: ${COSMOSDB_ACCOUNT_URL}
+  # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
   # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
@@ -141,14 +141,14 @@ cache:
     
     # ----- Azure 環境（CosmosDB・API キー認証） -----
     type: cosmosdb
-    connection_string: ${COSMOSDB_CONNECTION_STRING}
+    connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
     container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
     database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
     
     # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
     # [公式ドキュメント未記載・コード実装あり]
     # type: cosmosdb
-    # account_url: ${COSMOSDB_ACCOUNT_URL}
+    # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
     # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
     # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
@@ -171,14 +171,14 @@ vector_store:
   
   # ----- Azure 環境（CosmosDB ベクトルストア・API キー認証） -----
   # type: cosmosdb
-  # url: ${COSMOSDB_URL}
-  # connection_string: ${COSMOSDB_CONNECTION_STRING}
+  # url: ${AZURE_COSMOSDB_URL}
+  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
   
   # ----- Azure 環境（CosmosDB ベクトルストア・マネージド ID 認証） -----
   # [公式ドキュメント未記載・コード実装あり]
   # type: cosmosdb
-  # url: ${COSMOSDB_URL}
+  # url: ${AZURE_COSMOSDB_URL}
   # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
 ### Workflow settings ###

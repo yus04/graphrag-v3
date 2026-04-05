@@ -27,7 +27,7 @@
 #   GRAPHRAG_BLOB_CONTAINER_INPUT       - 入力用 Blob コンテナ名
 #   GRAPHRAG_BLOB_CONTAINER_OUTPUT      - 出力用 Blob コンテナ名（index 有無の判定にも使用）
 #   GRAPHRAG_BLOB_CONTAINER_LOGS        - ログ用 Blob コンテナ名
-#   COSMOSDB_CONNECTION_STRING          - CosmosDB 接続文字列（キャッシュ用）
+#   AZURE_COSMOSDB_CONNECTION_STRING          - CosmosDB 接続文字列（キャッシュ用）
 #   GRAPHRAG_COSMOSDB_DATABASE          - CosmosDB データベース名
 #   AZURE_SEARCH_URL                    - Azure AI Search エンドポイント URL
 #   AZURE_SEARCH_API_KEY                - Azure AI Search API キー
@@ -98,13 +98,52 @@ jobs:
           enable-cache: true
 
       # ──────────────────────────────────────────────
-      # 4. 依存パッケージのインストール（テスト用 dev グループを含む）
+      # 4. 必須シークレットの事前チェック
+      #    未設定のシークレットがあると後続の GraphRAG 実行で深いところから
+      #    認証エラーが発生し、LLM 呼び出しコストが無駄になるため早期検出する。
+      # ──────────────────────────────────────────────
+      - name: Validate required secrets
+        env:
+          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
+          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_STORAGE_ACCOUNT_URL: ${{ secrets.AZURE_STORAGE_ACCOUNT_URL }}
+          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
+          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS }}
+          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL }}
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
+          AZURE_COSMOSDB_CONNECTION_STRING: ${{ secrets.AZURE_COSMOSDB_CONNECTION_STRING }}
+          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE }}
+        run: |
+          MISSING=()
+          [[ -z "$GRAPHRAG_API_KEY" ]]                    && MISSING+=("GRAPHRAG_API_KEY")
+          [[ -z "$GRAPHRAG_API_BASE" ]]                   && MISSING+=("GRAPHRAG_API_BASE")
+          [[ -z "$AZURE_STORAGE_CONNECTION_STRING" ]]     && MISSING+=("AZURE_STORAGE_CONNECTION_STRING")
+          [[ -z "$AZURE_STORAGE_ACCOUNT_URL" ]]           && MISSING+=("AZURE_STORAGE_ACCOUNT_URL")
+          [[ -z "$GRAPHRAG_BLOB_CONTAINER_INPUT" ]]       && MISSING+=("GRAPHRAG_BLOB_CONTAINER_INPUT")
+          [[ -z "$GRAPHRAG_BLOB_CONTAINER_OUTPUT" ]]      && MISSING+=("GRAPHRAG_BLOB_CONTAINER_OUTPUT")
+          [[ -z "$GRAPHRAG_BLOB_CONTAINER_LOGS" ]]        && MISSING+=("GRAPHRAG_BLOB_CONTAINER_LOGS")
+          [[ -z "$AZURE_SEARCH_URL" ]]                    && MISSING+=("AZURE_SEARCH_URL")
+          [[ -z "$AZURE_SEARCH_API_KEY" ]]                && MISSING+=("AZURE_SEARCH_API_KEY")
+          [[ -z "$AZURE_COSMOSDB_CONNECTION_STRING" ]]    && MISSING+=("AZURE_COSMOSDB_CONNECTION_STRING")
+          [[ -z "$GRAPHRAG_COSMOSDB_DATABASE" ]]          && MISSING+=("GRAPHRAG_COSMOSDB_DATABASE")
+
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo "::error::以下の必須シークレットが未設定です: ${MISSING[*]}"
+            echo "GitHub リポジトリの Settings > Secrets and variables > Actions で設定してください。"
+            exit 1
+          fi
+          echo "必須シークレットがすべて設定されていることを確認しました。"
+
+      # ──────────────────────────────────────────────
+      # 5. 依存パッケージのインストール（テスト用 dev グループを含む）
       # ──────────────────────────────────────────────
       - name: Install dependencies
         run: uv sync
 
       # ──────────────────────────────────────────────
-      # 5. ユニットテストの実行
+      # 6. ユニットテストの実行
       #    インデックスも Azure 認証情報も不要なテストをインデックス作成前に実行します。
       #    コードの構造・設定・エントリーポイントの正常性を検証します。
       # ──────────────────────────────────────────────
@@ -112,7 +151,7 @@ jobs:
         run: uv run pytest tests/test_server.py -v
 
       # ──────────────────────────────────────────────
-      # 6. インデックスの存在確認とコマンドの自動選択
+      # 7. インデックスの存在確認とコマンドの自動選択
       #
       #    【重要】GraphRAG のサブコマンドの使い分け
       #      graphrag index  → is_update_run=False: previous_table_provider が設定されない
@@ -216,9 +255,9 @@ jobs:
           GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS || 'graphrag-logs' }}
           GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE || 'graphrag-cache' }}
           # --- Azure CosmosDB ---
-          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING || '' }}
-          COSMOSDB_URL: ${{ secrets.COSMOSDB_URL || '' }}
-          COSMOSDB_ACCOUNT_URL: ${{ secrets.COSMOSDB_ACCOUNT_URL || '' }}
+          AZURE_COSMOSDB_CONNECTION_STRING: ${{ secrets.AZURE_COSMOSDB_CONNECTION_STRING || '' }}
+          AZURE_COSMOSDB_URL: ${{ secrets.AZURE_COSMOSDB_URL || '' }}
+          AZURE_COSMOSDB_ACCOUNT_URL: ${{ secrets.AZURE_COSMOSDB_ACCOUNT_URL || '' }}
           GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE || 'graphrag' }}
           # --- Azure AI Search ---
           AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY || '' }}
@@ -275,9 +314,9 @@ jobs:
           GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS || 'graphrag-logs' }}
           GRAPHRAG_BLOB_CONTAINER_CACHE: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_CACHE || 'graphrag-cache' }}
           # --- Azure CosmosDB ---
-          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING || '' }}
-          COSMOSDB_URL: ${{ secrets.COSMOSDB_URL || '' }}
-          COSMOSDB_ACCOUNT_URL: ${{ secrets.COSMOSDB_ACCOUNT_URL || '' }}
+          AZURE_COSMOSDB_CONNECTION_STRING: ${{ secrets.AZURE_COSMOSDB_CONNECTION_STRING || '' }}
+          AZURE_COSMOSDB_URL: ${{ secrets.AZURE_COSMOSDB_URL || '' }}
+          AZURE_COSMOSDB_ACCOUNT_URL: ${{ secrets.AZURE_COSMOSDB_ACCOUNT_URL || '' }}
           GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE || 'graphrag' }}
           # --- Azure AI Search ---
           AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY || '' }}
