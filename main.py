@@ -34,6 +34,8 @@ import pandas as pd
 from graphrag.data_model import DataReader
 from graphrag_storage import create_storage
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 # --- 内部 API（v3.0.6 時点で公開 API が存在しない）--------------------------
 # graphrag.config および graphrag_storage の内部パスはバージョン変更で移動する可能性あり
@@ -288,6 +290,17 @@ async def graphrag_basic_search(
         query=query,
     )
     return str(response)
+
+
+# ---------------------------------------------------------------------------
+# ヘルスチェック
+# ---------------------------------------------------------------------------
+
+
+@mcp.custom_route("/", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
+    """サーバーの死活確認用エンドポイント。"""
+    return JSONResponse({"status": "ok", "server": "graphrag-mcp"})
 
 
 # ---------------------------------------------------------------------------
