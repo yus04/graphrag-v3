@@ -12,6 +12,12 @@ wheels/
 # Environment variables
 .env
 
+# deployment
+.deployment
+
+# vscode settings
+settings.json
+
 # input
 input/
 
