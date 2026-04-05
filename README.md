@@ -322,6 +322,12 @@ python main.py
 
 #### HTTP クライアントからの接続確認
 
+ブラウザで App Service のルート URL にアクセスすると以下のレスポンスが返ってきます。
+
+```
+{"status":"ok","server":"graphrag-mcp"}
+```
+
 ```bash
 # MCP Inspector で検証
 npx @modelcontextprotocol/inspector
@@ -340,6 +346,7 @@ npx @modelcontextprotocol/inspector
 #### 注意事項
 
 - 本プロジェクトの GraphRAG MCP サーバーは認証機能が無いため、本番運用を考慮する際には Azure API Management 等を使って認証レイヤーを加えることが必須です。
+- MCP Inspector から MCP Server にアクセス可能にするため、CORS ミドルウェアを追加しています。任意の `allow_origins` を指定しているため、MCP Inspector を利用しない場合は CORS ミドルウェアを削除したりオリジンを指定するなどの対応をしてください。
 
 ## 参考リンク
 
