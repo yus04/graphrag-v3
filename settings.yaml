@@ -114,6 +114,7 @@ reporting:
   # ----- Azure 環境（Blob Storage・API キー認証） -----
   type: blob
   connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+  account_url: ${AZURE_STORAGE_ACCOUNT_URL}
   container_name: ${GRAPHRAG_BLOB_CONTAINER_LOGS}
   
   # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
