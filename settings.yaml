@@ -1,38 +1,23 @@
-### This config file contains required core defaults that must be set, along with a handful of common optional settings.
-### For a full list of available settings, see https://microsoft.github.io/graphrag/config/yaml/
-
 ### LLM settings ###
 
 completion_models:
   default_completion_model:
-    model_provider: azure # or openai
+    model_provider: azure
     model: ${GRAPHRAG_COMPLETION_MODEL}
     deployment_name: ${GRAPHRAG_COMPLETION_DEPLOYMENT_NAME}
-    
-    # ----- ローカル環境 / Azure 環境（API キー認証） -----
     auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY}
-    
-    # ----- Azure 環境（マネージド ID 認証） -----
-    # auth_method: azure_managed_identity
-    
     api_base: ${GRAPHRAG_API_BASE}
     retry:
       type: exponential_backoff
 
 embedding_models:
   default_embedding_model:
-    model_provider: azure # or openai
+    model_provider: azure
     model: ${GRAPHRAG_EMBEDDING_MODEL}
     deployment_name: ${GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME}
-    
-    # ----- ローカル環境 / Azure 環境（API キー認証） -----
     auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY}
-    
-    # ----- Azure 環境（マネージド ID 認証） -----
-    # auth_method: azure_managed_identity
-    
     api_base: ${GRAPHRAG_API_BASE}
     retry:
       type: exponential_backoff
@@ -40,7 +25,7 @@ embedding_models:
 ### Document processing settings ###
 
 input:
-  type: text # [csv, text, json, jsonl]
+  type: text
 
 chunking:
   type: tokens
@@ -51,135 +36,35 @@ chunking:
 ### Storage settings ###
 
 input_storage:
-  # ----- ローカル環境 -----
-  # type: file # [file, blob, cosmosdb]
-  # base_dir: "${GRAPHRAG_INPUT_BASE_DIR}"
-  
-  # ----- Azure 環境（Blob Storage・API キー認証） -----
   type: blob
   connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
   container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
-  
-  # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
-  # type: blob
-  # account_url: ${AZURE_STORAGE_ACCOUNT_URL}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
-  
-  # ----- Azure 環境（CosmosDB・API キー認証） -----
-  # type: cosmosdb
-  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
-  
-  # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
-  # [公式ドキュメント未記載・コード実装あり]
-  # type: cosmosdb
-  # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
 output_storage:
-  # ----- ローカル環境 -----
-  # type: file # [file, blob, cosmosdb]
-  # base_dir: "${GRAPHRAG_OUTPUT_BASE_DIR}"
-  
-  # ----- Azure 環境（Blob Storage・API キー認証） -----
   type: blob
   connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
   container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
-  
-  # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
-  # type: blob
-  # account_url: ${AZURE_STORAGE_ACCOUNT_URL}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
-  
-  # ----- Azure 環境（CosmosDB・API キー認証） -----
-  # type: cosmosdb
-  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
-  
-  # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
-  # [公式ドキュメント未記載・コード実装あり]
-  # type: cosmosdb
-  # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
 reporting:
-  # ----- ローカル環境 -----
-  # type: file # [file, blob]
-  # base_dir: "${GRAPHRAG_LOGS_BASE_DIR}"
-  
-  # ----- Azure 環境（Blob Storage・API キー認証） -----
   type: blob
   connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
   account_url: ${AZURE_STORAGE_ACCOUNT_URL}
   container_name: ${GRAPHRAG_BLOB_CONTAINER_LOGS}
-  
-  # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
-  # type: blob
-  # account_url: ${AZURE_STORAGE_ACCOUNT_URL}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_LOGS}
 
 cache:
-  type: json # [json, memory, none]
+  type: json
   storage:
-    # ----- ローカル環境 -----
-    # type: file # [file, blob, cosmosdb]
-    # base_dir: "${GRAPHRAG_CACHE_BASE_DIR}"
-    
-    # ----- Azure 環境（Blob Storage・API キー認証） -----
-    # type: blob
-    # connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
-    # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
-    
-    # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
-    # type: blob
-    # account_url: ${AZURE_STORAGE_ACCOUNT_URL}
-    # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
-    
-    # ----- Azure 環境（CosmosDB・API キー認証） -----
     type: cosmosdb
     connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
     container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
     database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
-    
-    # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
-    # [公式ドキュメント未記載・コード実装あり]
-    # type: cosmosdb
-    # account_url: ${AZURE_COSMOSDB_ACCOUNT_URL}
-    # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
-    # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
 ### Vector store settings ###
 
 vector_store:
-  # ----- ローカル環境 -----
-  # type: lancedb
-  # db_uri: ${GRAPHRAG_LANCEDB_URI}
-  
-  # ----- Azure 環境（Azure AI Search・API キー認証） -----
   type: azure_ai_search
   url: ${AZURE_SEARCH_URL}
   api_key: ${AZURE_SEARCH_API_KEY}
-  
-  # ----- Azure 環境（Azure AI Search・マネージド ID 認証） -----
-  # type: azure_ai_search
-  # url: ${AZURE_SEARCH_URL}
-  # audience: ${AZURE_SEARCH_AUDIENCE}
-  
-  # ----- Azure 環境（CosmosDB ベクトルストア・API キー認証） -----
-  # type: cosmosdb
-  # url: ${AZURE_COSMOSDB_URL}
-  # connection_string: ${AZURE_COSMOSDB_CONNECTION_STRING}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
-  
-  # ----- Azure 環境（CosmosDB ベクトルストア・マネージド ID 認証） -----
-  # [公式ドキュメント未記載・コード実装あり]
-  # type: cosmosdb
-  # url: ${AZURE_COSMOSDB_URL}
-  # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
 
 ### Workflow settings ###
 
@@ -199,7 +84,7 @@ summarize_descriptions:
 
 extract_graph_nlp:
   text_analyzer:
-    extractor_type: regex_english # [regex_english, syntactic_parser, cfg]
+    extractor_type: regex_english
 
 cluster_graph:
   max_cluster_size: 10
