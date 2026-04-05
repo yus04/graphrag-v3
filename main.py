@@ -75,7 +75,7 @@ except ImportError as e:
 
 mcp = FastMCP("graphrag")
 
-_ROOT_DIR = Path(os.environ.get("GRAPHRAG_ROOT", "."))
+_ROOT_DIR = Path(__file__).resolve().parent
 
 _config: GraphRagConfig | None = None
 _df_cache: dict[str, pd.DataFrame | None] = {}
