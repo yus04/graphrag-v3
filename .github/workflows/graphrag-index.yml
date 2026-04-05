@@ -4,24 +4,33 @@
 # スケジュール実行（毎週日曜 JST 00:00 / UTC 土曜 15:00）と手動トリガーの両方に対応しています。
 #
 # ■ インデックス作成方法の自動判定（method: auto）
-#   output/entities.parquet の存在を確認し、
-#   - ファイルが存在する場合 → standard-update（差分更新）
-#   - ファイルが存在しない場合 → standard（フル構築）
+#   Azure Blob Storage 上の entities.parquet の存在を az storage blob exists で確認し、
+#   - ファイルが存在する場合 → update（差分更新）
+#   - ファイルが存在しない場合 → index（フル構築）
 #   を自動で選択します。
 #
-# ■ ローカルファイルストレージを使用する場合の注意
-#   output/ ディレクトリは .gitignore に含まれているため、GitHub Actions の
-#   キャッシュ（actions/cache）を使ってジョブ間でインデックスを永続化します。
-#   Azure Blob Storage を使用する場合はキャッシュステップは不要です。
+# ■ ストレージ設計
+#   settings.yaml で output_storage / vector_store / cache をすべて Azure サービス
+#   （Blob Storage / Azure AI Search / CosmosDB）に向けているため、GraphRAG の実行結果は
+#   直接 Azure に書き込まれます。GitHub Actions のローカルディスクには成果物は残りません。
+#   したがって actions/cache による永続化は不要です。
 #
 # 必要な GitHub Secrets:
-#   GRAPHRAG_API_KEY        - Azure OpenAI または OpenAI の API キー
-#   GRAPHRAG_API_BASE       - Azure OpenAI エンドポイント URL
-#                             例: https://<instance>.openai.azure.com
-#
-# Azure Blob Storage を使う場合は追加で以下の Secrets が必要です:
-#   AZURE_STORAGE_CONNECTION_STRING - Azure Storage 接続文字列
-#                                     （または下記の OIDC フェデレーション認証を使用）
+#   GRAPHRAG_API_KEY                    - Azure OpenAI または OpenAI の API キー
+#   GRAPHRAG_API_BASE                   - Azure OpenAI エンドポイント URL
+#                                         例: https://<instance>.openai.azure.com
+#   GRAPHRAG_COMPLETION_MODEL           - 補完モデル名
+#   GRAPHRAG_COMPLETION_DEPLOYMENT_NAME - 補完モデルのデプロイ名
+#   GRAPHRAG_EMBEDDING_MODEL            - 埋め込みモデル名
+#   GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME  - 埋め込みモデルのデプロイ名
+#   AZURE_STORAGE_CONNECTION_STRING     - Azure Storage 接続文字列
+#   GRAPHRAG_BLOB_CONTAINER_INPUT       - 入力用 Blob コンテナ名
+#   GRAPHRAG_BLOB_CONTAINER_OUTPUT      - 出力用 Blob コンテナ名（index 有無の判定にも使用）
+#   GRAPHRAG_BLOB_CONTAINER_LOGS        - ログ用 Blob コンテナ名
+#   COSMOSDB_CONNECTION_STRING          - CosmosDB 接続文字列（キャッシュ用）
+#   GRAPHRAG_COSMOSDB_DATABASE          - CosmosDB データベース名
+#   AZURE_SEARCH_URL                    - Azure AI Search エンドポイント URL
+#   AZURE_SEARCH_API_KEY                - Azure AI Search API キー
 #
 # Azure マネージド ID / OIDC フェデレーション認証を使う場合は以下の Secrets が必要です:
 #   AZURE_CLIENT_ID         - サービスプリンシパルまたはマネージド ID のクライアント ID
@@ -31,9 +40,9 @@
 name: GraphRAG Index
 
 on:
-  # スケジュール実行: 毎週日曜 UTC 02:00
+  # スケジュール実行: 毎週日曜 JST 00:00（UTC 土曜 15:00）
   schedule:
-    - cron: "0 2 * * 0"
+    - cron: "0 15 * * 6"
 
   # 手動トリガー: GitHub Actions UI から実行可能
   workflow_dispatch:
@@ -89,24 +98,18 @@ jobs:
           enable-cache: true
 
       # ──────────────────────────────────────────────
-      # 4. 依存パッケージのインストール
+      # 4. 依存パッケージのインストール（テスト用 dev グループを含む）
       # ──────────────────────────────────────────────
       - name: Install dependencies
-        run: uv sync --no-dev
+        run: uv sync
 
       # ──────────────────────────────────────────────
-      # 5. 前回のインデックスをキャッシュから復元（ローカルストレージ使用時のみ）
-      #    Azure Blob Storage を使う場合はこのステップを削除してください。
-      #    restore-keys によって常に最新のキャッシュを取得します。
+      # 5. ユニットテストの実行
+      #    インデックスも Azure 認証情報も不要なテストをインデックス作成前に実行します。
+      #    コードの構造・設定・エントリーポイントの正常性を検証します。
       # ──────────────────────────────────────────────
-      - name: Restore index cache
-        id: cache-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: output/
-          key: graphrag-index-${{ github.sha }}
-          restore-keys: |
-            graphrag-index-
+      - name: Run unit tests
+        run: uv run pytest tests/test_server.py -v
 
       # ──────────────────────────────────────────────
       # 6. インデックスの存在確認とコマンドの自動選択
@@ -119,17 +122,29 @@ jobs:
       #    graphrag index --method standard-update とすると
       #    "previous_table_provider is required" エラーになります。
       #
-      #    output/entities.parquet の存在で判定します。
+      #    settings.yaml の output_storage が Azure Blob Storage であるため、
+      #    ローカルに output/entities.parquet は生成されません。
+      #    代わりに az storage blob exists で Blob Storage 上のファイルを確認します。
       #    method が "auto" またはスケジュール実行の場合に自動判定が適用されます。
       # ──────────────────────────────────────────────
       - name: Detect existing index and resolve method
         id: resolve-method
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
         run: |
           REQUESTED="${{ github.event.inputs.method || 'auto' }}"
 
-          if [[ -f "output/entities.parquet" ]]; then
+          BLOB_EXISTS=$(az storage blob exists \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name "$GRAPHRAG_BLOB_CONTAINER_OUTPUT" \
+            --name "entities.parquet" \
+            --query exists \
+            --output tsv 2>/dev/null || echo "false")
+
+          if [[ "$BLOB_EXISTS" == "true" ]]; then
             echo "INDEX_EXISTS=true" >> "$GITHUB_ENV"
-            echo "既存のインデックスが見つかりました (output/entities.parquet)"
+            echo "既存のインデックスが見つかりました (Blob: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}/entities.parquet)"
             # 差分更新: graphrag update --method standard を使う
             AUTO_SUBCMD="update"
             AUTO_BASE_METHOD="standard"
@@ -173,13 +188,25 @@ jobs:
       # 8. GraphRAG インデックス作成
       #    フルビルド  : uv run graphrag index  --root . --method {standard|fast}
       #    差分更新    : uv run graphrag update --root . --method {standard|fast}
+      #    成果物は settings.yaml の output_storage / vector_store / cache 設定に従い
+      #    Azure Blob Storage / Azure AI Search / CosmosDB へ直接書き込まれます。
       # ──────────────────────────────────────────────
       - name: Run GraphRAG index
         env:
           GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
           GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
-          # Azure Blob Storage を使う場合
-          # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL }}
+          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME }}
+          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL }}
+          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
+          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS }}
+          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING }}
+          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE }}
+          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL }}
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
         run: |
           VERBOSE_FLAG=""
           if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
@@ -200,28 +227,26 @@ jobs:
           echo "=== インデックス作成が完了しました ==="
 
       # ──────────────────────────────────────────────
-      # 9. 更新後のインデックスをキャッシュに保存（ローカルストレージ使用時のみ）
-      #    Azure Blob Storage を使う場合はこのステップを削除してください。
-      #    常に新しいキャッシュエントリとして保存します。
+      # 9. 統合テストの実行
+      #    MCP サーバーを stdio サブプロセスとして起動し、接続・ツール一覧を検証します。
+      #    output/entities.parquet がローカルに存在しないため、インデックスを使った
+      #    検索テスト（@skip_if_no_index）は自動的にスキップされます。
       # ──────────────────────────────────────────────
-      - name: Save index cache
+      - name: Run integration tests
         if: success()
-        uses: actions/cache/save@v4
-        with:
-          path: output/
-          key: graphrag-index-${{ github.sha }}
-
-      # ──────────────────────────────────────────────
-      # 10. インデックス成果物のアップロード（ローカルストレージ使用時のみ）
-      #     Azure Blob Storage を使う場合はこのステップは不要です
-      # ──────────────────────────────────────────────
-      - name: Upload index artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: graphrag-output-${{ github.run_id }}
-          path: |
-            output/
-            logs/
-          retention-days: 7
-          if-no-files-found: warn
+        env:
+          GRAPHRAG_API_KEY: ${{ secrets.GRAPHRAG_API_KEY }}
+          GRAPHRAG_API_BASE: ${{ secrets.GRAPHRAG_API_BASE }}
+          GRAPHRAG_COMPLETION_MODEL: ${{ secrets.GRAPHRAG_COMPLETION_MODEL }}
+          GRAPHRAG_COMPLETION_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_COMPLETION_DEPLOYMENT_NAME }}
+          GRAPHRAG_EMBEDDING_MODEL: ${{ secrets.GRAPHRAG_EMBEDDING_MODEL }}
+          GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME: ${{ secrets.GRAPHRAG_EMBEDDING_DEPLOYMENT_NAME }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          GRAPHRAG_BLOB_CONTAINER_INPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_INPUT }}
+          GRAPHRAG_BLOB_CONTAINER_OUTPUT: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_OUTPUT }}
+          GRAPHRAG_BLOB_CONTAINER_LOGS: ${{ secrets.GRAPHRAG_BLOB_CONTAINER_LOGS }}
+          COSMOSDB_CONNECTION_STRING: ${{ secrets.COSMOSDB_CONNECTION_STRING }}
+          GRAPHRAG_COSMOSDB_DATABASE: ${{ secrets.GRAPHRAG_COSMOSDB_DATABASE }}
+          AZURE_SEARCH_URL: ${{ secrets.AZURE_SEARCH_URL }}
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
+        run: uv run pytest tests/test_server_integration.py -v

@@ -52,13 +52,13 @@ chunking:
 
 input_storage:
   # ----- ローカル環境 -----
-  type: file # [file, blob, cosmosdb]
-  base_dir: "${GRAPHRAG_INPUT_BASE_DIR}"
+  # type: file # [file, blob, cosmosdb]
+  # base_dir: "${GRAPHRAG_INPUT_BASE_DIR}"
   
   # ----- Azure 環境（Blob Storage・API キー認証） -----
-  # type: blob
-  # connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
+  type: blob
+  connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+  container_name: ${GRAPHRAG_BLOB_CONTAINER_INPUT}
   
   # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
   # type: blob
@@ -80,13 +80,13 @@ input_storage:
 
 output_storage:
   # ----- ローカル環境 -----
-  type: file # [file, blob, cosmosdb]
-  base_dir: "${GRAPHRAG_OUTPUT_BASE_DIR}"
+  # type: file # [file, blob, cosmosdb]
+  # base_dir: "${GRAPHRAG_OUTPUT_BASE_DIR}"
   
   # ----- Azure 環境（Blob Storage・API キー認証） -----
-  # type: blob
-  # connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
+  type: blob
+  connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+  container_name: ${GRAPHRAG_BLOB_CONTAINER_OUTPUT}
   
   # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
   # type: blob
@@ -108,13 +108,13 @@ output_storage:
 
 reporting:
   # ----- ローカル環境 -----
-  type: file # [file, blob]
-  base_dir: "${GRAPHRAG_LOGS_BASE_DIR}"
+  # type: file # [file, blob]
+  # base_dir: "${GRAPHRAG_LOGS_BASE_DIR}"
   
   # ----- Azure 環境（Blob Storage・API キー認証） -----
-  # type: blob
-  # connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
-  # container_name: ${GRAPHRAG_BLOB_CONTAINER_LOGS}
+  type: blob
+  connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+  container_name: ${GRAPHRAG_BLOB_CONTAINER_LOGS}
   
   # ----- Azure 環境（Blob Storage・マネージド ID 認証） -----
   # type: blob
@@ -125,8 +125,8 @@ cache:
   type: json # [json, memory, none]
   storage:
     # ----- ローカル環境 -----
-    type: file # [file, blob, cosmosdb]
-    base_dir: "${GRAPHRAG_CACHE_BASE_DIR}"
+    # type: file # [file, blob, cosmosdb]
+    # base_dir: "${GRAPHRAG_CACHE_BASE_DIR}"
     
     # ----- Azure 環境（Blob Storage・API キー認証） -----
     # type: blob
@@ -139,10 +139,10 @@ cache:
     # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
     
     # ----- Azure 環境（CosmosDB・API キー認証） -----
-    # type: cosmosdb
-    # connection_string: ${COSMOSDB_CONNECTION_STRING}
-    # container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
-    # database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
+    type: cosmosdb
+    connection_string: ${COSMOSDB_CONNECTION_STRING}
+    container_name: ${GRAPHRAG_BLOB_CONTAINER_CACHE}
+    database_name: ${GRAPHRAG_COSMOSDB_DATABASE}
     
     # ----- Azure 環境（CosmosDB・マネージド ID 認証） -----
     # [公式ドキュメント未記載・コード実装あり]
@@ -155,13 +155,13 @@ cache:
 
 vector_store:
   # ----- ローカル環境 -----
-  type: lancedb
-  db_uri: ${GRAPHRAG_LANCEDB_URI}
+  # type: lancedb
+  # db_uri: ${GRAPHRAG_LANCEDB_URI}
   
   # ----- Azure 環境（Azure AI Search・API キー認証） -----
-  # type: azure_ai_search
-  # url: ${AZURE_SEARCH_URL}
-  # api_key: ${AZURE_SEARCH_API_KEY}
+  type: azure_ai_search
+  url: ${AZURE_SEARCH_URL}
+  api_key: ${AZURE_SEARCH_API_KEY}
   
   # ----- Azure 環境（Azure AI Search・マネージド ID 認証） -----
   # type: azure_ai_search
