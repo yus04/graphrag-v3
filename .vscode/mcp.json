@@ -6,7 +6,7 @@
       "args": [
         "run",
         "--directory",
-        "/workspaces/graphrag-v3",
+        "/workspaces/graphrag-azure-mcp-sample",
         "graphrag-mcp"
       ]
     }
