@@ -1,4 +1,4 @@
-# graphrag-v3
+# graphrag-azure-mcp-sample
 
 本リポジトリのコードは、[GraphRAG v3](https://github.com/microsoft/graphrag) を使ったアプリケーションを Azure で公開するためのサンプルコードです。`uv run graphrag init` により構成されたプロジェクトをベースに、MCP サーバー化のための実装を行っています。
 
@@ -18,7 +18,7 @@
 ### 1. リポジトリのクローン／ディレクトリへ移動
 
 ```bash
-cd graphrag-v3
+cd graphrag-azure-mcp-sample
 ```
 
 ### 2. 依存パッケージのインストール

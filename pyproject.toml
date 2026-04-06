@@ -1,5 +1,5 @@
 [project]
-name = "graphrag-v3"
+name = "graphrag-azure-mcp-sample"
 version = "0.1.0"
 description = "GraphRAG MCP server – GraphRAG のクエリ機能を MCP ツールとして公開する"
 requires-python = ">=3.12"

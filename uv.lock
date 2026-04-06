@@ -928,7 +928,7 @@ wheels = [
 ]
 
 [[package]]
-name = "graphrag-v3"
+name = "graphrag-azure-mcp-sample"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
